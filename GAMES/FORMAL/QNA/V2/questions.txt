@@ -1,0 +1,8 @@
+q:My favorite color?
+q:What is my name?
+q:Is this a quiz?
+q:Did I mess up the answer in the last question?
+a:Red
+a:Mopsi
+a:No, it's a qna
+a:No
