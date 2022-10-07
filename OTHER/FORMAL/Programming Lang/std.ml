@@ -67,3 +67,21 @@ proc clear do
         pop
     end
 end
+
+proc while_loop_1 do
+    index 100 lt if
+        index 1 add "index" var
+        index 3 mod 0 eq "fizz" var
+        index 5 mod 0 eq "buzz" var
+        fizz buzz and if
+            "FizzBuzz" println
+        else fizz if
+            "Fizz" println
+        else buzz if
+            "Buzz" println
+        else
+            index print
+        endif
+    finally while_loop_1
+    endif
+end

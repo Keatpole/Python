@@ -24,7 +24,7 @@ def builtins(word, index):
     :param str word: The word to check
     """
 
-    global in_proc, code, if_skip, fn_skip
+    global in_proc, code, if_skip, fn_skip, if_result
 
     if word != "" and word[0] != '"':
         word = word.lower()
@@ -48,27 +48,27 @@ def builtins(word, index):
     
     # T_ADD
     elif word == "add":
-        a, b = stack.pop(), stack.pop()
+        b, a = stack.pop(), stack.pop()
         stack.append(a + b)
 
     # T_SUB
     elif word == "sub":
-        a, b = stack.pop(), stack.pop()
+        b, a = stack.pop(), stack.pop()
         stack.append(a - b)
 
     # T_MUL
     elif word == "mul":
-        a, b = stack.pop(), stack.pop()
+        b, a = stack.pop(), stack.pop()
         stack.append(a * b)
 
     # T_DIV
     elif word == "div":
-        a, b = stack.pop(), stack.pop()
-        stack.append(a // b)
+        b, a = stack.pop(), stack.pop()
+        stack.append(a / b)
 
     # T_MOD
     elif word == "mod":
-        a, b = stack.pop(), stack.pop()
+        b, a = stack.pop(), stack.pop()
         stack.append(a % b)
 
     # T_DUP
@@ -190,18 +190,33 @@ def builtins(word, index):
     # T_IF
     elif word == "if":
         if_skip = not stack.pop()
-        if_result.append(int(not if_skip))
+        if_result.append({})
+        if_result[-1][index] = int(not if_skip)
 
     # T_ENDIF
     elif word == "endif":
         if_skip = False
 
-        if len(if_result) > 0:
+        if if_result:
             if_result.pop()
 
     # T_ELSE
     elif word == "else":
-        if_skip = not if_skip
+        res = if_result[-1].popitem()
+        if_result[-1][res[0]] = res[1]
+
+        if_skip = bool(res[1])
+
+    elif word == "finally":
+        key = None
+
+        for i in if_result[-1].keys():
+            key = i
+            break
+
+        if key is None: return
+
+        if if_result[-1][key]: if_skip = False
 
     # T_WHILE
     elif word == "while":
@@ -231,8 +246,12 @@ def builtins(word, index):
         while_loops.append(c2)
         procs[f"while_loop_{len(while_loops)}"] = {"code": c2, "return": 0}
         __code = code.copy()
-        _code = f"proc while_loop_{len(while_loops)} do {' '.join(c)} if {' '.join(c2)} while_loop_{len(while_loops)} endif end".split(" ")
+        _code = f"proc while_loop_{len(while_loops)} do {' '.join(c)} if {' '.join(c2)} finally endif endif while_loop_{len(while_loops)} endif end".split(" ")
         code = f"{' '.join(_code)} while_loop_{len(while_loops)} {' '.join(code[index + len(c) + len(c2) + 2:])}".split(" ")
+
+        print(" ".join(__code),"\n\n"," ".join(_code),"\n\n"," ".join(code))
+
+        # proc while_loop_1 do index 100 lt if index 1 add "index" var index 3 mod 0 eq "fizz" var index 5 mod 0 eq "buzz" var fizz buzz and if "FizzBuzz" println else fizz if "Fizz" println else buzz if "Buzz" println else index print endif end
 
         #print(_code)
 
@@ -356,11 +375,11 @@ def builtins(word, index):
     else:
         return -1
 
-def run(c, id, debug=False):
+def run(c, id, debug=1):
     """
     Runs the code
 
-    :param code: The code to run
+    :param c: The code to run
     """
 
     global is_in_string, string, in_proc, fn_skip, code
@@ -375,9 +394,10 @@ def run(c, id, debug=False):
 
             print("PROCS:", procs)
 
-            print("SKIP_BOOLS (fn, if):", fn_skip, if_skip)
+            print("SKIP_BOOLS (fn, if, res):", fn_skip, if_skip, if_result)
 
             print("EXIT_BOOL:", str(conId != id), conId, id)
+            print("STACK:", stack)
 
             print("--- END ---")
         if conId != id:
@@ -388,33 +408,39 @@ def run(c, id, debug=False):
 
         cont = if_skip or fn_skip
 
-        if if_skip and word in ["endif", "else"]:
+        if if_skip and word in ["endif", "else", "finally"]:
             builtins(word, i)
         if fn_skip and word in ["end"]:
             fn_skip = False
             builtins(word, i)
 
+        if if_skip and word == "if":
+            try:
+                stack.append(code[i - 1])
+                if_result[i] = 1
+            except Exception:
+                pass
+
         if cont:
             continue
 
-        if not if_skip and not fn_skip:
-            if is_in_string:
-                string += word + " "
-                if word[-1] == '"':
-                    is_in_string = False
-                    stack.append(string[1:-2])
-                continue
-            
-            if word[0] == '"':
-                if word[-1] != '"':
-                    is_in_string = True
+        if is_in_string:
+            string += word + " "
+            if word[-1] == '"':
+                is_in_string = False
+                stack.append(string[1:-2])
+            continue
+        
+        if word[0] == '"':
+            if word[-1] != '"':
+                is_in_string = True
 
-                    string = ""
-                    string += word + " "
-                else:
-                    stack.append(word[1:-1])
-                    
-                continue
+                string = ""
+                string += word + " "
+            else:
+                stack.append(word[1:-1])
+                
+            continue
 
         if len(word) < 1:
             continue
@@ -482,8 +508,6 @@ if __name__ == "__main__":
     else:
         while True:
             code = remove_comments(input(">> ")).strip().split(" ")
-
-            #print("DEBUG:", code)
 
             run(code, conId)
 
